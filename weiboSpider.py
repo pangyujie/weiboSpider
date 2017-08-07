@@ -1,4 +1,6 @@
 import datetime
+import time
+import random
 import re
 import string
 import sys
@@ -14,10 +16,15 @@ from bs4 import BeautifulSoup
 from lxml import etree
 
 
-cookie = {"Cookie": "SCF=AlJx51nACyZ00vHFohBskzxzWj_LEsM88RMtnf9y9O6akfrEhv5YxlHAjaTVS_gOzpFOW659rrkpTA_BCVsmQVk.; SUBP=0033WrSXqPxfM725Ws9jqgMF55529P9D9WFM3GjG724o4ORoFz4qdL5n5JpX5o2p5NHD95Qf1hBfSo-fSK.cWs4DqcjiMspaqPib9g8E; SUB=_2A250jC8kDeRhGeNG71cX9SvJwjqIHXVXjrFsrDV6PUJbkdBeLVShkW0dwqjmnfvoF0iBXjMJyKKQhdvoPg..; SUHB=0k1CbhMepbb59p; SSOLoginState=1502109556"}  # 将your cookie替换成自己的cookie
+# 1000758160 - 38
+# 1000758160 - 39
+# 1000758160 - 40
+# 1000758160 - 41
+
+cookie = {"Cookie": "SCF=ApO_51cXD2Hk_EeBRq6NMIOdnUVq_UccMerlXhK9J1SEBwz6IP8n9gZUfH6SUJwoW-WiwtpRJwb4yl2anogffxc.; _T_WM=5a2af491554af5c32dddde4eb5c4b044; M_WEIBOCN_PARAMS=uicode%3D20000174; H5_INDEX=3; H5_INDEX_TITLE=ploarbear; SUB=_2A250jIGdDeRhGeNG71cX9SvJwjqIHXVXji_VrDV6PUJbkdBeLRHikW1PiivCsb9LGVTGg-ASiKCdmYDDkA..; SUHB=0qj0eWkiy4xymM; SSOLoginState=1502147021"}  # 将your cookie替换成自己的cookie
 filter_val = 1  # 取值范围为0、1，程序默认值为0，代表要爬取用户的全部微博，1代表只爬取用户的原创微博
 limit = 300
-pool_size = 5
+pool_size = 4
 
 class Weibo:
     # weibo类初始化
@@ -33,6 +40,7 @@ class Weibo:
         self.num_zan = []  # 微博对应的点赞数
         self.num_forwarding = []  # 微博对应的转发数
         self.num_comment = []  # 微博对应的评论数
+        self.dt_source = [] # 时间及设备
         self.transtable = str.maketrans({
             '\r': '',
             '\n': '',
@@ -115,11 +123,17 @@ class Weibo:
                 # print len(info)
                 if len(info) > 3:
                     for i in range(0, len(info) - 2):
+                        random_secs= random.random() * 1
+                        time.sleep(random_secs)
                         self.weiboNum2 = self.weiboNum2 + 1
                         # 微博内容
                         str_t = info[i].xpath("div/span[@class='ctt']")
                         weibos = str_t[0].xpath('string(.)').translate(self.transtable)
                         self.weibos.append(weibos)
+                        # 时间及设备
+                        str_dt = info[i].xpath("div/span[@class='ct']")
+                        dt_src = str_dt[0].xpath('string(.)')
+                        self.dt_source.append(dt_src)
                         # print '微博内容：'+ weibos
                         # 点赞数
                         str_zan = info[i].xpath("div/a/text()")[-4]
@@ -141,7 +155,7 @@ class Weibo:
                         # print '评论数: ' + str(num_comment)
 
                         print('%d - %d' % (self.user_id, self.weiboNum2))
-                        if self.weiboNum2 > limit:
+                        if self.weiboNum2 >= limit:
                             if filter_val == 0:
                                 print('共' + str(self.weiboNum2) + '条微博')
                             else:
@@ -190,6 +204,23 @@ if __name__ == '__main__':
     ids_file_path = os.path.join(current_dir, 'ids.txt')
     ids = read_ids(ids_file_path)
     os.makedirs(os.path.join(current_dir, 'weibo'), exist_ok=True)
+    
+    # out_file_path = os.path.join(current_dir, 'weibo', 'weibos.txt')
+    # with open(out_file_path, 'w', encoding='utf-8') as file_out:
+    #     for user_id in ids:
+    #         wb = Weibo(int(user_id))  # 调用weibo类，创建微博实例wb
+    #         wb.start()
+    #         for idx, user_weibo in enumerate(wb.weibos):
+    #             file_out.write(user_id + '#&#' + \
+    #                             wb.userName + '#&#' + \
+    #                             str(wb.weiboNum) + '#&#' + \
+    #                             str(wb.following) + '#&#' + \
+    #                             str(wb.followers) + '#&#' + \
+    #                             str(wb.num_zan[idx]) + '#&#' + \
+    #                             str(wb.num_forwarding[idx]) + '#&#' + \
+    #                             str(wb.num_comment[idx]) + '#&#' + \
+    #                             str(wb.dt_source[idx]) + '#&#' + \
+    #                             str(user_weibo) + '\n')
 
     with concurrent.futures.ProcessPoolExecutor(max_workers=pool_size) as executor:
         executor.map(create_anf_run, ids)
