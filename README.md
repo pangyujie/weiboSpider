@@ -22,7 +22,7 @@
 ### 使用说明
 1、下载脚本
 ```bash
-$ git clone https://github.com/dataabc/weibospider.git
+$ git clone https://github.com/pangyujie/weiboSpider.git
 ```
 运行上述命令，将本项目下载到当前目录，如果下载成功当前目录会出现一个名为"weibospider"的文件夹；<br>
 2、用文本编辑器打开weibospider文件夹下的"weiboSpider.py"文件；<br>
