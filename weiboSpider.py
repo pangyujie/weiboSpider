@@ -1,3 +1,4 @@
+import datetime
 import re
 import string
 import sys
@@ -5,23 +6,24 @@ import os
 import urllib.request
 import urllib.parse
 import urllib.error
-import urllib.request
-import urllib.error
-import urllib.parse
 import traceback
+import concurrent.futures
 
 import requests
 from bs4 import BeautifulSoup
 from lxml import etree
 
 
-class weibo:
-    cookie = {"Cookie": "you cookie"}  # 将your cookie替换成自己的cookie
+cookie = {"Cookie": "SCF=AlJx51nACyZ00vHFohBskzxzWj_LEsM88RMtnf9y9O6akfrEhv5YxlHAjaTVS_gOzpFOW659rrkpTA_BCVsmQVk.; SUBP=0033WrSXqPxfM725Ws9jqgMF55529P9D9WFM3GjG724o4ORoFz4qdL5n5JpX5o2p5NHD95Qf1hBfSo-fSK.cWs4DqcjiMspaqPib9g8E; SUB=_2A250jC8kDeRhGeNG71cX9SvJwjqIHXVXjrFsrDV6PUJbkdBeLVShkW0dwqjmnfvoF0iBXjMJyKKQhdvoPg..; SUHB=0k1CbhMepbb59p; SSOLoginState=1502109556"}  # 将your cookie替换成自己的cookie
+filter_val = 1  # 取值范围为0、1，程序默认值为0，代表要爬取用户的全部微博，1代表只爬取用户的原创微博
+limit = 300
+pool_size = 5
+
+class Weibo:
     # weibo类初始化
 
-    def __init__(self, user_id, filter=0):
+    def __init__(self, user_id):
         self.user_id = user_id  # 用户id，即需要我们输入的数字，如昵称为“Dear-迪丽热巴”的id为1669879400
-        self.filter = filter  # 取值范围为0、1，程序默认值为0，代表要爬取用户的全部微博，1代表只爬取用户的原创微博
         self.userName = ''  # 用户名，如“Dear-迪丽热巴”
         self.weiboNum = 0  # 用户全部微博数
         self.weiboNum2 = 0  # 爬取到的微博数
@@ -31,12 +33,17 @@ class weibo:
         self.num_zan = []  # 微博对应的点赞数
         self.num_forwarding = []  # 微博对应的转发数
         self.num_comment = []  # 微博对应的评论数
+        self.transtable = str.maketrans({
+            '\r': '',
+            '\n': '',
+            '\t': ''
+        })
 
     # 获取用户昵称
     def getUserName(self):
         try:
             url = 'http://weibo.cn/%d/info' % (self.user_id)
-            html = requests.get(url, cookies=weibo.cookie).content
+            html = requests.get(url, cookies=cookie).content
             selector = etree.HTML(html)
             userName = selector.xpath("//title/text()")[0]
             self.userName = userName[:-3]
@@ -49,8 +56,8 @@ class weibo:
     def getUserInfo(self):
         try:
             url = 'http://weibo.cn/u/%d?filter=%d&page=1' % (
-                self.user_id, self.filter)
-            html = requests.get(url, cookies=weibo.cookie).content
+                self.user_id, filter_val)
+            html = requests.get(url, cookies=cookie).content
             selector = etree.HTML(html)
             pattern = r"\d+\.?\d*"
 
@@ -83,20 +90,27 @@ class weibo:
     def getWeiboInfo(self):
         try:
             url = 'http://weibo.cn/u/%d?filter=%d&page=1' % (
-                self.user_id, self.filter)
-            html = requests.get(url, cookies=weibo.cookie).content
-            selector = etree.HTML(html)
+                self.user_id, filter_val)
+            html = requests.get(url, cookies=cookie).content
+            try:
+                selector = etree.HTML(html)
+            except Exception:
+                return
             if selector.xpath('//input[@name="mp"]') == []:
                 pageNum = 1
             else:
                 pageNum = (int)(selector.xpath(
                     '//input[@name="mp"]')[0].attrib['value'])
             pattern = r"\d+\.?\d*"
+            weibo_cnt = 0
             for page in range(1, pageNum + 1):
                 url2 = 'http://weibo.cn/u/%d?filter=%d&page=%d' % (
-                    self.user_id, self.filter, page)
-                html2 = requests.get(url2, cookies=weibo.cookie).content
-                selector2 = etree.HTML(html2)
+                    self.user_id, filter_val, page)
+                html2 = requests.get(url2, cookies=cookie).content
+                try:
+                    selector2 = etree.HTML(html2)
+                except Exception:
+                    continue
                 info = selector2.xpath("//div[@class='c']")
                 # print len(info)
                 if len(info) > 3:
@@ -104,7 +118,7 @@ class weibo:
                         self.weiboNum2 = self.weiboNum2 + 1
                         # 微博内容
                         str_t = info[i].xpath("div/span[@class='ctt']")
-                        weibos = str_t[0].xpath('string(.)')
+                        weibos = str_t[0].xpath('string(.)').translate(self.transtable)
                         self.weibos.append(weibos)
                         # print '微博内容：'+ weibos
                         # 点赞数
@@ -125,11 +139,14 @@ class weibo:
                         num_comment = int(guid[0])
                         self.num_comment.append(num_comment)
                         # print '评论数: ' + str(num_comment)
-            if self.filter == 0:
-                print('共' + str(self.weiboNum2) + '条微博')
-            else:
-                print('共' + str(self.weiboNum) + '条微博，其中' +
-                      str(self.weiboNum2) + '条为原创微博')
+
+                        print('%d - %d' % (self.user_id, self.weiboNum2))
+                        if self.weiboNum2 > limit:
+                            if filter_val == 0:
+                                print('共' + str(self.weiboNum2) + '条微博')
+                            else:
+                                print('共' + str(self.weiboNum2) + '条为原创微博')
+                            return
         except Exception as e:
           print("Error: ", e)
           traceback.print_exc()
@@ -137,51 +154,42 @@ class weibo:
     # 主程序
     def start(self):
         try:
-            weibo.getUserName(self)
-            weibo.getUserInfo(self)
-            weibo.getWeiboInfo(self)
-            print('信息抓取完毕')
+            self.getUserName()
+            self.getUserInfo()
+            self.getWeiboInfo()
+            print('信息抓取完毕, %s' % self.userName)
             print('===========================================================================')
         except Exception as e:
             print("Error: ", e)
 
-        # 将爬取的信息写入文件
-    def writeTxt(self):
-        try:
-            if self.filter == 1:
-                resultHeader = '\n\n原创微博内容：\n'
-            else:
-                resultHeader = '\n\n微博内容：\n'
-            result = '用户信息\n用户昵称：' + self.userName + '\n用户id：' + str(self.user_id) + '\n微博数：' + str(
-                self.weiboNum) + '\n关注数：' + str(self.following) + '\n粉丝数：' + str(self.followers) + resultHeader
-            for i in range(1, self.weiboNum2 + 1):
-                text = str(i) + ':' + self.weibos[i - 1] + '\n' + '点赞数：' + str(self.num_zan[i - 1]) + '	 转发数：' + str(
-                    self.num_forwarding[i - 1]) + '	 评论数：' + str(self.num_comment[i - 1]) + '\n\n'
-                result = result + text
-            if os.path.isdir('weibo') == False:
-                os.mkdir('weibo')
-            f = open("weibo/%s.txt" % self.user_id, "w", encoding='utf-8')
-            f.write(result)
-            f.close()
-            file_path = os.getcwd() + "/weibo" + "\%d" % self.user_id + ".txt"
-            print('微博写入文件完毕，保存路径%s' % (file_path))
-        except Exception as e:
-            print("Error: ", e)
-            traceback.print_exc()
+def read_ids(ids_file_path):
+    ids = []
+    with open(ids_file_path, 'r', encoding='utf-8') as file_in:
+        for line in file_in:
+            if line.strip():
+                ids.append(line.strip())
+    return ids
 
+def create_anf_run(user_id):
+    out_file_path = os.path.join(current_dir, 'weibo', 'weibos.' + user_id + '.txt')
+    wb = Weibo(int(user_id))  # 调用weibo类，创建微博实例wb
+    wb.start()
+    with open(out_file_path, 'w', encoding='utf-8') as file_out:
+        for idx, user_weibo in enumerate(wb.weibos):
+            file_out.write(user_id + '#&#' + \
+                            wb.userName + '#&#' + \
+                            str(wb.following) + '#&#' + \
+                            str(wb.followers) + '#&#' + \
+                            str(wb.num_zan[idx]) + '#&#' + \
+                            str(wb.num_forwarding[idx]) + '#&#' + \
+                            str(wb.num_comment[idx]) + '#&#' + \
+                            str(user_weibo) + '\n')
 
-# 使用实例,输入一个用户id，所有信息都会存储在wb实例中
-user_id = 1669879400  # 可以改成任意合法的用户id（爬虫的微博id除外）
-filter = 1  # 值为0表示爬取全部的微博信息（原创微博+转发微博），值为1表示只爬取原创微博
-wb = weibo(user_id, filter)  # 调用weibo类，创建微博实例wb
-wb.start()  # 爬取微博信息
-wb.writeTxt()  # wb.writeTxt()只是把信息写到文件里，大家可以根据自己的需要重新编写writeTxt()函数
-print('用户名：' + str(wb.userName))
-print('全部微博数：' + str(wb.weiboNum))
-print('关注数：' + str(wb.following))
-print('粉丝数：' + str(wb.followers))
-# 若filter=1则为最新的原创微博，如果该用户微博数为0，即len(wb.weibos)==0,打印会出错，下同
-print('最新一条微博为：' + wb.weibos[0])
-print('最新一条微博获得的点赞数：' + str(wb.num_zan[0]))
-print('最新一条微博获得的转发数：' + str(wb.num_forwarding[0]))
-print('最新一条微博获得的评论数：' + str(wb.num_comment[0]))
+if __name__ == '__main__':
+    current_dir = os.path.dirname(__file__)
+    ids_file_path = os.path.join(current_dir, 'ids.txt')
+    ids = read_ids(ids_file_path)
+    os.makedirs(os.path.join(current_dir, 'weibo'), exist_ok=True)
+
+    with concurrent.futures.ProcessPoolExecutor(max_workers=pool_size) as executor:
+        executor.map(create_anf_run, ids)
