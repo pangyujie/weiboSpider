@@ -21,10 +21,10 @@ from lxml import etree
 # 1000758160 - 40
 # 1000758160 - 41
 
-cookie = {"Cookie": "SCF=ApO_51cXD2Hk_EeBRq6NMIOdnUVq_UccMerlXhK9J1SEBwz6IP8n9gZUfH6SUJwoW-WiwtpRJwb4yl2anogffxc.; _T_WM=5a2af491554af5c32dddde4eb5c4b044; M_WEIBOCN_PARAMS=uicode%3D20000174; H5_INDEX=3; H5_INDEX_TITLE=ploarbear; SUB=_2A250jIGdDeRhGeNG71cX9SvJwjqIHXVXji_VrDV6PUJbkdBeLRHikW1PiivCsb9LGVTGg-ASiKCdmYDDkA..; SUHB=0qj0eWkiy4xymM; SSOLoginState=1502147021"}  # 将your cookie替换成自己的cookie
+cookie = {"Cookie": "SCF=AlAnw83FxwZ1AA0SV5TXvGuDPkQww6YPJH0zeQASkG3260ST7YhSbAlKw5sOvwAydWF5QkvBCLLohLLAVoQOHwQ.; _T_WM=a91ae45b9d2c64993f90f60988a37524; H5_INDEX=3; H5_INDEX_TITLE=ploarbear; M_WEIBOCN_PARAMS=featurecode%3D20000320%26luicode%3D10000011%26lfid%3D102803_ctg1_8999_-_ctg1_8999_home%26fid%3D102803_ctg1_8999_-_ctg1_8999_home%26uicode%3D10000011; SUB=_2A250jVcVDeRhGeNG71cX9SvJwjqIHXVXjnldrDV6PUJbkdBeLVDHkW2cCeX7nBBvoA7bOykIgS2l6tU-XA..; SUHB=0LcS3X4RTbp3wH; SSOLoginState=1502160709"}  # 将your cookie替换成自己的cookie
 filter_val = 1  # 取值范围为0、1，程序默认值为0，代表要爬取用户的全部微博，1代表只爬取用户的原创微博
 limit = 300
-pool_size = 4
+pool_size = 1
 
 class Weibo:
     # weibo类初始化
@@ -40,6 +40,7 @@ class Weibo:
         self.num_zan = []  # 微博对应的点赞数
         self.num_forwarding = []  # 微博对应的转发数
         self.num_comment = []  # 微博对应的评论数
+        self.urls = [] # 微博url
         self.dt_source = [] # 时间及设备
         self.transtable = str.maketrans({
             '\r': '',
@@ -126,6 +127,8 @@ class Weibo:
                         random_secs= random.random() * 1
                         time.sleep(random_secs)
                         self.weiboNum2 = self.weiboNum2 + 1
+                        # URL
+                        self.urls.append(url2)
                         # 微博内容
                         str_t = info[i].xpath("div/span[@class='ctt']")
                         weibos = str_t[0].xpath('string(.)').translate(self.transtable)
@@ -198,6 +201,7 @@ def create_anf_run(user_id):
                             str(wb.num_forwarding[idx]) + '#&#' + \
                             str(wb.num_comment[idx]) + '#&#' + \
                             str(wb.dt_source[idx]) + '#&#' + \
+                            str(wb.urls[idx]) + '#&#' + \
                             str(user_weibo) + '\n')
 
 if __name__ == '__main__':
@@ -206,22 +210,23 @@ if __name__ == '__main__':
     ids = read_ids(ids_file_path)
     os.makedirs(os.path.join(current_dir, 'weibo'), exist_ok=True)
     
-    # out_file_path = os.path.join(current_dir, 'weibo', 'weibos.txt')
-    # with open(out_file_path, 'w', encoding='utf-8') as file_out:
-    #     for user_id in ids:
-    #         wb = Weibo(int(user_id))  # 调用weibo类，创建微博实例wb
-    #         wb.start()
-    #         for idx, user_weibo in enumerate(wb.weibos):
-    #             file_out.write(user_id + '#&#' + \
-    #                             wb.userName + '#&#' + \
-    #                             str(wb.weiboNum) + '#&#' + \
-    #                             str(wb.following) + '#&#' + \
-    #                             str(wb.followers) + '#&#' + \
-    #                             str(wb.num_zan[idx]) + '#&#' + \
-    #                             str(wb.num_forwarding[idx]) + '#&#' + \
-    #                             str(wb.num_comment[idx]) + '#&#' + \
-    #                             str(wb.dt_source[idx]) + '#&#' + \
-    #                             str(user_weibo) + '\n')
+    out_file_path = os.path.join(current_dir, 'weibo', 'weibos.txt')
+    with open(out_file_path, 'w', encoding='utf-8') as file_out:
+        for user_id in ids:
+            wb = Weibo(int(user_id))  # 调用weibo类，创建微博实例wb
+            wb.start()
+            for idx, user_weibo in enumerate(wb.weibos):
+                file_out.write(user_id + '#&#' + \
+                                wb.userName + '#&#' + \
+                                str(wb.weiboNum) + '#&#' + \
+                                str(wb.following) + '#&#' + \
+                                str(wb.followers) + '#&#' + \
+                                str(wb.num_zan[idx]) + '#&#' + \
+                                str(wb.num_forwarding[idx]) + '#&#' + \
+                                str(wb.num_comment[idx]) + '#&#' + \
+                                str(wb.dt_source[idx]) + '#&#' + \
+                                str(wb.urls[idx]) + '#&#' + \
+                                str(user_weibo) + '\n')
 
-    with concurrent.futures.ProcessPoolExecutor(max_workers=pool_size) as executor:
-        executor.map(create_anf_run, ids)
+    # with concurrent.futures.ProcessPoolExecutor(max_workers=pool_size) as executor:
+    #     executor.map(create_anf_run, ids)
