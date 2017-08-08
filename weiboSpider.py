@@ -197,6 +197,7 @@ def create_anf_run(user_id):
                             str(wb.num_zan[idx]) + '#&#' + \
                             str(wb.num_forwarding[idx]) + '#&#' + \
                             str(wb.num_comment[idx]) + '#&#' + \
+                            str(wb.dt_source[idx]) + '#&#' + \
                             str(user_weibo) + '\n')
 
 if __name__ == '__main__':
